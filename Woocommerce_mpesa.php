@@ -592,62 +592,37 @@ if(!add_filter( 'woocommerce_payment_gateways', 'woompesa_add_gateway_class' )){
 //Create Table for M-PESA Transactions
 
 function woompesa_mpesatrx_install() {
-
-	
-
-	global $wpdb;
-
-	global $trx_db_version;
-
-	$trx_db_version = '1.0';
-
-
-
-	$table_name = $wpdb->prefix .'mpesa_trx';
-
-	
-
-	$charset_collate = $wpdb->get_charset_collate();
-
-
-
-	$sql = "CREATE TABLE IF NOT EXISTS $table_name (
-
-		id mediumint(9) NOT NULL AUTO_INCREMENT,
-
-		order_id varchar(150) DEFAULT '' NULL,
-
-		phone_number varchar(150) DEFAULT '' NULL,
-
-		trx_time datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
-
-		merchant_request_id varchar(150) DEFAULT '' NULL,
-
-		checkout_request_id varchar(150) DEFAULT '' NULL,
-
-		resultcode varchar(150) DEFAULT '' NULL,
-
-		resultdesc varchar(150) DEFAULT '' NULL,
-
-		processing_status varchar(20) DEFAULT '0' NULL,
-
-		PRIMARY KEY  (id)
-
-	) $charset_collate;";
-
-	
-
-	require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
-
-	dbDelta( $sql );
-
-
-
-	add_option( 'trx_db_version', $trx_db_version );
-
-		
-
+    global $wpdb;
+    $trx_db_version = '1.0';
+    $table_name = $wpdb->prefix . 'mpesa_trx';
+    $charset_collate = $wpdb->get_charset_collate();
+    
+    $sql = "CREATE TABLE IF NOT EXISTS $table_name (
+        id mediumint(9) NOT NULL AUTO_INCREMENT,
+        order_id varchar(150) DEFAULT '' NULL,
+        phone_number varchar(150) DEFAULT '' NULL,
+        trx_time datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
+        merchant_request_id varchar(150) DEFAULT '' NULL,
+        checkout_request_id varchar(150) DEFAULT '' NULL,
+        resultcode varchar(150) DEFAULT '' NULL,
+        resultdesc varchar(150) DEFAULT '' NULL,
+        processing_status varchar(20) DEFAULT '0' NULL,
+        PRIMARY KEY  (id)
+    ) $charset_collate;";
+    
+    require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+    dbDelta( $sql );
+    
+    if (get_option('trx_db_version') != $trx_db_version) {
+        add_option('trx_db_version', $trx_db_version);
+    }
 }
+
+// Hook the function to run on plugin activation
+register_activation_hook(__FILE__, 'woompesa_mpesatrx_install');
+
+
+
 
 
 
@@ -930,7 +905,9 @@ function woompesa_scan_transactions(){
     // Handle response (logging or further processing as needed)
     // ...
 
+
     // Add any necessary cleanup or redirection before exit
+
     exit();
 }
 
