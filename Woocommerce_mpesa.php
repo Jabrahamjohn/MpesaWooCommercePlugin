@@ -488,7 +488,7 @@ if ($_GET['transactionType']=='checkout') {
 
 	<button onClick="pay()" id="pay_btn">Pay</button>
 
-    <button onClick="confirm()" id="confirm_btn" style="display:none;">Complete Order</button>
+    <button onClick="x()" id="complete_btn">Complete Order</button>
 
 
     <?php	
@@ -837,10 +837,101 @@ function woompesa_request_payment(){
 /////Scanner start
 
 function woompesa_scan_transactions(){
-//The code below is invoked after customer clicks on the Confirm Order button
-echo json_encode(array("rescode" => "76", "resmsg" => "Callback processing has been disabled, please download the Pro Version of the plugin."));
+    // Start session
+    session_start();
 
-exit();
+    // Access WordPress database
+    global $wpdb; 
+    $table_name = $wpdb->prefix . 'mpesa_trx';
+
+    // Sanitize session input
+    $merchant_request_id = sanitize_text_field($_SESSION['ReqID']);
+
+    // Check transaction status
+    $trx_count = $wpdb->get_var(
+        $wpdb->prepare("SELECT COUNT(*) FROM $table_name WHERE merchant_request_id = %s AND processing_status = 0", $merchant_request_id)
+    );
+
+    if ($trx_count == 0) {
+        echo json_encode(array("rescode" => "99", "resmsg" => "Transaction not found"));
+        exit();
+    }
+
+    // Get access token from cache or request a new one
+    $access_token = get_transient('mpesa_access_token');
+    if (!$access_token) {
+        $url = $_SESSION['credentials_endpoint'];
+        $YOUR_APP_CONSUMER_KEY = sanitize_text_field($_SESSION['ck']);
+        $YOUR_APP_CONSUMER_SECRET = sanitize_text_field($_SESSION['cs']);
+        $credentials = base64_encode($YOUR_APP_CONSUMER_KEY . ':' . $YOUR_APP_CONSUMER_SECRET);
+
+        $token_response = wp_remote_get($url, array(
+            'headers' => array('Authorization' => 'Basic ' . $credentials)
+        ));
+
+        if (is_wp_error($token_response)) {
+            error_log('Token request error: ' . $token_response->get_error_message());
+            echo json_encode(array("rescode" => "1", "resmsg" => "Error, unable to obtain access token"));
+            exit();
+        }
+
+        $token_array = json_decode($token_response['body'], true);
+
+        if (isset($token_array['access_token'])) {
+            $access_token = $token_array['access_token'];
+            set_transient('mpesa_access_token', $access_token, 3600); // Cache for 1 hour
+        } else {
+            echo json_encode(array("rescode" => "1", "resmsg" => "Error, unable to send payment request"));
+            exit();
+        }
+    }
+
+    // Prepare payment request
+    $url = $_SESSION['payments_endpoint'];
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+    $domainName = $_SERVER['HTTP_HOST'] . '/';
+    $callback_url = esc_url_raw($protocol . $domainName . 'index.php?callback_action=1');
+    $shortcd = sanitize_text_field($_SESSION['shortcode']);
+    $timestamp = date("YmdHis");
+    $b64 = $shortcd . sanitize_text_field($_SESSION['passkey']) . $timestamp;
+    $pwd = base64_encode($b64);
+
+    $curl_post_data = array(
+        'BusinessShortCode' => $shortcd,
+        'Password' => $pwd,
+        'Timestamp' => $timestamp,
+        'TransactionType' => 'CustomerPayBillOnline',
+        'Amount' => floatval($_SESSION['total']),
+        'PartyA' => sanitize_text_field($_SESSION['tel']),
+        'PartyB' => $shortcd,
+        'PhoneNumber' => sanitize_text_field($_SESSION['tel']),
+        'CallBackURL' => $callback_url,
+        'AccountReference' => time(),
+        'TransactionDesc' => 'Sending a lipa na mpesa request'
+    );
+
+    $data_string = json_encode($curl_post_data);
+
+    // Send payment request
+    $response = wp_remote_post($url, array(
+        'body' => $data_string,
+        'headers' => array(
+            'Content-Type' => 'application/json',
+            'Authorization' => 'Bearer ' . $access_token
+        )
+    ));
+
+    if (is_wp_error($response)) {
+        error_log('Payment request error: ' . $response->get_error_message());
+        echo json_encode(array("rescode" => "1", "resmsg" => "Error, unable to send payment request"));
+        exit();
+    }
+
+    // Handle response (logging or further processing as needed)
+    // ...
+
+    // Add any necessary cleanup or redirection before exit
+    exit();
 }
 
 
