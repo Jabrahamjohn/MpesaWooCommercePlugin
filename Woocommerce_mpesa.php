@@ -593,10 +593,10 @@ if(!add_filter( 'woocommerce_payment_gateways', 'woompesa_add_gateway_class' )){
 
 function woompesa_mpesatrx_install() {
     global $wpdb;
+    global $trx_db_version;
     $trx_db_version = '1.0';
     $table_name = $wpdb->prefix . 'mpesa_trx';
     $charset_collate = $wpdb->get_charset_collate();
-    
     $sql = "CREATE TABLE IF NOT EXISTS $table_name (
         id mediumint(9) NOT NULL AUTO_INCREMENT,
         order_id varchar(150) DEFAULT '' NULL,
@@ -609,20 +609,12 @@ function woompesa_mpesatrx_install() {
         processing_status varchar(20) DEFAULT '0' NULL,
         PRIMARY KEY  (id)
     ) $charset_collate;";
-    
-    require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
-    dbDelta( $sql );
-    
-    if (get_option('trx_db_version') != $trx_db_version) {
-        add_option('trx_db_version', $trx_db_version);
-    }
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    dbDelta($sql);
+    add_option('trx_db_version', $trx_db_version);
 }
 
-// Hook the function to run on plugin activation
 register_activation_hook(__FILE__, 'woompesa_mpesatrx_install');
-
-
-
 
 
 
@@ -902,15 +894,34 @@ function woompesa_scan_transactions(){
         exit();
     }
 
-    // Handle response (logging or further processing as needed)
-    // ...
+    // Parse the response
+    $response_body = json_decode(wp_remote_retrieve_body($response), true);
 
+    if (isset($response_body['ResponseCode']) && $response_body['ResponseCode'] == '0') {
+        // Transaction is successful, update processing status
+        $wpdb->update(
+            $table_name,
+            array('processing_status' => 1), // Update to success status
+            array('merchant_request_id' => $merchant_request_id),
+            array('%d'),
+            array('%s')
+        );
 
-    // Add any necessary cleanup or redirection before exit
+        // Display success banner and redirect to shop main page
+        echo '<div class="payment-success-banner">Payment Successful! Redirecting to shop...</div>';
+        echo '<script type="text/javascript">
+                setTimeout(function(){
+                    window.location.href = "'.home_url('/shop').'";
+                }, 5000);
+              </script>';
+    } else {
+        echo json_encode(array("rescode" => "1", "resmsg" => "Error, transaction not successful"));
+    }
 
     exit();
 }
 
+    
 
 
 ////Scanner end
