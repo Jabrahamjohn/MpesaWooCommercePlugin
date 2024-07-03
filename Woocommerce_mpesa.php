@@ -463,10 +463,8 @@ if ($_GET['transactionType']=='checkout') {
 
 	
 
-    echo "<h4>Payment Instructions:</h4>";
-
-    echo "
-
+    echo "<b>Kindly Follow The Instructions Below to pay:</b>";
+    echo "<h5>
 		  1. Click on the <b>Pay</b> button in order to initiate the M-PESA payment.<br/>
 
 		  2. Check your mobile phone for a prompt asking to enter M-PESA pin.<br/>
@@ -477,15 +475,15 @@ if ($_GET['transactionType']=='checkout') {
 
     	  4. When you enter the pin and click on send, you will receive an M-PESA payment confirmation message on your mobile phone.<br/>     	
 
-    	  5. After receiving the M-PESA payment confirmation message please click on the <b>Complete Order</b> button below to complete the order and confirm the payment made.<br/>";
+    	  5. After receiving the M-PESA payment confirmation message please click on the <b>Complete Order</b> button below to complete the order and confirm the payment made.<br/>
+          </h5>";?>
+    
 
-    echo "<br/>";?>
+	<input type="hidden" value="" id="txid"/>
 
-	
-
-	<input type="hidden" value="" id="txid"/>	
-
-
+    <b><h5>Please Proceed To Pay</h5></b>
+    <b>Ksh.<?php echo $_SESSION['total']; ?></b><br>
+    To <b><?php echo $this->mer; ?></b> from <b><?php echo $_SESSION['tel']; ?></b> 
 	<div id="commonname"></div>
 
 	<button onClick="pay()" id="pay_btn">Pay</button>
